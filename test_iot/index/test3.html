@@ -1,0 +1,350 @@
+<!DOCTYPE HTML>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>Temperature &amp; Humidity Dashboard | Firebase + ESP8266</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- การนำเข้าสไตล์ -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <link rel="stylesheet" href="css/bootstrap.min.css">
+    <link rel="stylesheet" href="css/bootstrap-material-design.min.css">
+    <link rel="stylesheet" href="css/ripples.min.css">
+    <link rel="stylesheet" href="css/animate.min.css">
+
+    <!-- การนำเข้าสคริปต์ -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.1.0/jquery.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/3.3.2/firebase.js"></script>
+    <script src="js/jquery.canvasjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/toorshia/justgage/raphael-2.1.4.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/toorshia/justgage/justgage.js"></script>
+    <script src="js/bootstrap.min.js"></script>
+    <script src="js/material.min.js"></script>
+    <script src="js/ripples.min.js"></script>
+
+    <style>
+        body {
+            background-color: #f5f5f5;
+            font-family: 'Roboto', sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            margin-top: 50px;
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            font-weight: 700;
+            text-align: center;
+            color: #333333;
+        }
+
+        .nav-tabs {
+            margin-bottom: 20px;
+        }
+
+        .tab-pane {
+            padding: 20px 0;
+        }
+
+        .dialog {
+            width: 100%;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 6px 0 rgba(0, 0, 0, 0.12), 0 1px 6px 0 rgba(0, 0, 0, 0.12);
+        }
+
+        .dialog > .content {
+            padding: 30px 0;
+            border-radius: 10px;
+            font-size: 50px;
+            color: rgba(0, 0, 0, 0.84);
+            text-align: center;
+        }
+
+        .dialog > .title {
+            background: #FFF;
+            border-radius: 0 0 10px 10px;
+            font-size: 22px;
+            color: rgba(0, 0, 0, 0.87);
+            text-align: center;
+            padding: 10px 0;
+            font-weight: bold;
+        }
+
+        .gauge-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 300px;
+        }
+
+        .gauge {
+            width: 200px;
+            height: 150px;
+            margin: 0 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Temperature &amp; Humidity Dashboard <small>By Bunnapon Takumwan</small></h1>
+        <hr />
+
+        <!-- แท็บนำทาง -->
+        <ul class="nav nav-tabs" role="tablist">
+            <li role="presentation" class="active"><a href="#overview" aria-controls="home" role="tab"
+                    data-toggle="tab">Overview</a></li>
+            <li role="presentation"><a href="#history" aria-controls="profile" role="tab" data-toggle="tab">History</a>
+            </li>
+            <li role="presentation"><a href="#gauge-show" aria-controls="profile" role="tab" data-toggle="tab">Gauge</a>
+            </li>
+        </ul>
+
+        <!-- เนื้อหาแท็บ -->
+        <div class="tab-content">
+            <div role="tabpanel" class="tab-pane active" id="overview">
+                <div class="row">
+                    <div class="col-sm-4">
+                        <div class="dialog primary fadeIn animated" id="temperature">
+                            <div class="content">00.0 &deg;C</div>
+                            <div class="title">Temperature</div>
+                        </div>
+                    </div>
+                    <div class="col-sm-4">
+                        <div class="dialog info fadeIn animated" id="humidity">
+                            <div class="content">00.0 %</div>
+                            <div class="title">Humidity</div>
+                        </div>
+                    </div>
+                    <div class="col-sm-4">
+                        <div class="dialog final fadeout animated" id="light">
+                            <div class="content">00.0 </div>
+                            <div class="title">Light</div>
+                        </div>
+                    </div>
+                    <div class="col-sm-4">
+                        <div class="dialog success fadeIn animated" id="status">
+                            <div class="content">???</div>
+                            <div class="title">Node 1</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div role="tabpanel" class="tab-pane" id="history">
+                <div id="chartContainer" style="height: 300px; width: 100%;"></div>
+            </div>
+
+            <div role="tabpanel" class="tab-pane" id="gauge-show">
+                <div class="gauge-container row justify-content-center">
+                    <div class="col-sm-4 text-center">
+                        <div class="dialog gauge_light fadeIn animated">
+                            <div id="lightGauge" class="gauge"></div>
+                            <div class="title">Light</div>
+                        </div>
+                    </div>
+                    <div class="col-sm-4 text-center">
+                        <div class="dialog gauge_humidity fadeIn animated">
+                            <div id="humidityGauge" class="gauge"></div>
+                            <div class="title">humidity</div>
+                        </div>
+                    </div>
+                    <div class="col-sm-4 text-center">
+                        <div class="dialog gauge_temperature fadeIn animated">
+                            <div id="temperatureGauge" class="gauge"></div>
+                            <div class="title">temperature</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ตั้งค่า Firebase
+        var config = {
+            apiKey: "AIzaSyA24k_VX4RMJD4gkwma4DfDr6vtYHCr5Ro",
+            authDomain: "final-test-7328e.firebaseapp.com",
+            databaseURL: "https://final-test-7328e-default-rtdb.firebaseio.com",
+            storageBucket: "final-test-7328e.appspot.com"
+        };
+
+        var firebaseApp = firebase.initializeApp(config);
+        var logDHT = firebaseApp.database().ref().child("logDHT");
+
+        // เริ่มต้นสคริปต์ CanvasJS Chart
+        var chart = new CanvasJS.Chart("chartContainer", {
+        title: {
+            text: "Temperature, Humidity, and Light History"
+        },
+        axisX: {
+            valueFormatString: "DD MMM, HH:mm"
+        },
+        axisY: {
+            title: "Value"
+        },
+        data: [{
+            type: "line",
+            showInLegend: true,
+            legendText: "Temperature", // ชื่อของเส้นข้อมูลอุณหภูมิ
+            dataPoints: []
+        }, {
+            type: "line",
+            showInLegend: true,
+            legendText: "Humidity", // ชื่อของเส้นข้อมูลความชื้น
+            dataPoints: []
+        }, {
+            type: "line",
+            showInLegend: true,
+            legendText: "Light", // ชื่อของเส้นข้อมูลแสง
+            dataPoints: []
+        }]
+    });
+
+    logDHT.on("child_added", function (snapshot) {
+        var row = snapshot.val();
+        var timestamp = new Date(row.time);
+        var temperatureValue = {
+            x: timestamp,
+            y: row.temperature
+        };
+        var humidityValue = {
+            x: timestamp,
+            y: row.humidity
+        };
+        var lightValue = {
+            x: timestamp,
+            y: row.light
+        };
+
+        // อัปเดตข้อมูลกราฟ
+        chart.options.data[0].dataPoints.push(temperatureValue);
+        chart.options.data[1].dataPoints.push(humidityValue);
+        chart.options.data[2].dataPoints.push(lightValue);
+
+        // รีเรนเดอร์กราฟ
+        chart.render();
+    });
+
+        // เริ่มต้นสคริปต์ JustGage Gauge
+        var lightGauge = new JustGage({
+            id: "lightGauge",
+            value: 0,
+            min: 0,
+            max: 100,
+            title: "Light",
+            label: "lx",
+            gaugeWidthScale: 0.4,
+            counter: true,
+            relativeGaugeSize: true,
+            titleFontColor: "#000000", // ตั้งค่าสีของชื่อของ Gauge ที่นี่
+            valueFontColor: "#000000",
+            labelFontColor: "#000000",
+            
+        });
+
+        var temperatureGauge = new JustGage({
+            id: "temperatureGauge",
+            value: 0,
+            min: -20,
+            max: 50,
+            title: "Temperature",
+            label: "°C",
+            gaugeWidthScale: 0.4,
+            counter: true,
+            relativeGaugeSize: true,
+            titleFontColor: "#000000", // ตั้งค่าสีของชื่อของ Gauge ที่นี่
+            valueFontColor: "#000000",
+            labelFontColor: "#000000",
+        });
+
+        var humidityGauge = new JustGage({
+            id: "humidityGauge",
+            value: 0,
+            min: 0,
+            max: 100,
+            title: "Humidity",
+            label: "%",
+            gaugeWidthScale: 0.4,
+            counter: true,
+            relativeGaugeSize: true,
+            titleFontColor: "#000000", // ตั้งค่าสีของชื่อของ Gauge ที่นี่
+            valueFontColor: "#000000",
+            labelFontColor: "#000000",
+            
+        });
+
+        // ตัวอย่างการอัปเดตแกจจาก Firebase Realtime Database
+        logDHT.on("child_added", function (snapshot) {
+            var row = snapshot.val();
+            var lightValue = row.light;
+            var humidityValue = row.humidity;
+            var temperatureValue = row.temperature;
+
+            // อัปเดตแกจ
+            lightGauge.refresh(lightValue);
+            temperatureGauge.refresh(temperatureValue);
+            humidityGauge.refresh(humidityValue);
+        });
+
+        var logDHT = firebase.database().ref().child("logDHT");
+
+
+
+        var isOnline = true;
+
+function checkAndUpdateStatus() {
+    if (!isOnline) {
+        // ถ้าไม่มีการส่งข้อมูลมาเกิน 15 วินาที
+        $("#status").removeClass("success").addClass("danger");
+        $("#status > .content").text("OFFLINE");
+    }
+}
+
+logDHT.on("child_added", function(snapshot) {
+    var row = snapshot.val();
+
+    if (row) {
+        // มีข้อมูลที่ถูกส่งมา
+        isOnline = true;
+        $("#temperature > .content").html(row.temperature + " &deg;C");
+        $("#humidity > .content").text(row.humidity + " %");
+        $("#status").removeClass("danger").addClass("success");
+        $("#status > .content").text("ONLINE");
+        $("#light > .content").text(row.light + " lx");
+
+        // รีเรนเดอร์กราฟ
+        chart.options.data[0].dataPoints.push({ x: new Date(row.time), y: row.temperature });
+        chart.options.data[1].dataPoints.push({ x: new Date(row.time), y: row.humidity });
+        chart.options.data[2].dataPoints.push({ x: new Date(row.time), y: row.light });
+        chart.render();
+
+        // เมื่อมีข้อมูลเข้ามา รีเซ็ตเป็นออนไลน์
+        setTimeout(function() {
+            isOnline = false;
+            checkAndUpdateStatus();
+        }, 15000); // 15 วินาที
+    } else {
+        // ไม่มีข้อมูลถูกส่งมา (OFFLINE)
+        isOnline = false;
+        checkAndUpdateStatus();
+    }
+
+    setTimeoffline();
+});
+
+        // เริ่มต้นสคริปต์ Material Design Ripple Effect
+        $.material.init();
+    </script>
+</body>
+
+</html>
